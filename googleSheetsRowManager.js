@@ -3,10 +3,9 @@ Google Apps Script for Google Sheets.
 
 This script triggers on edit events in a Google Sheet. It performs the following tasks:
 1. Monitors edits in the first three columns (A, B, and C).
-2. If all cells in a row (except for the checkbox column) are filled:
-   - Inserts a checkbox in column D of the same row.
+2. If first four cells in a first row are filled:
+   - Inserts a '❓' symbol in column E of the same row.
    - If the row is the second row, inserts a new row above it.
-3. Removes checkboxes if any cell in the monitored columns is empty.
 4. Clears the format of filled rows when a new row is inserted.
  */
 
@@ -16,40 +15,46 @@ function onEdit(e) {
   const editedRow = range.getRow();
   const editedCol = range.getColumn();
 
-  if (editedRow > 1 && editedCol <= 3) {
-    setCheckboxBasedOnRowValues(sheet, editedRow);
+  if (editedRow === 2 && editedCol <= 4) {
+    setDropdownBasedOnRowValues(sheet, editedRow);
     createNewRowIfFilled(sheet, editedRow);
   }
 }
 
-function setCheckboxBasedOnRowValues(sheet, editedRow) {
+function setDropdownBasedOnRowValues(sheet, editedRow) {
   const allFilled = isRowFilled(sheet, editedRow);
 
   if (allFilled) {
-    sheet.getRange(editedRow, 4).insertCheckboxes();
+    const dropdownRange = sheet.getRange(editedRow, 5);
+    const rule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(["✔️", "❌", "❓"])
+      .build();
+    dropdownRange.setDataValidation(rule);
+    dropdownRange.setValue("❓");
   } else {
-    sheet.getRange(editedRow, 4).removeCheckboxes();
+    sheet.getRange(editedRow, 5).clearDataValidations().setValue("");
   }
 }
 
 function createNewRowIfFilled(sheet, editedRow) {
   const allFilled = isRowFilled(sheet, editedRow);
 
-  if (editedRow == 2 && allFilled) {
+  if (allFilled) {
     formatFilledRow(sheet, editedRow);
-    sheet.insertRowBefore(2);
-    // New row starts automatically with checkbox
-    sheet.getRange(editedRow, 4).removeCheckboxes();
+    sheet.insertRowBefore(editedRow);
+    // New row starts without dropdown menu
+    const newRowRange = sheet.getRange(editedRow, 5);
+    newRowRange.clearDataValidations().setValue("");
   }
 }
 
 function isRowFilled(sheet, row) {
-  const rowValues = sheet.getRange(row, 1, 1, 3).getValues()[0];
+  const rowValues = sheet.getRange(row, 1, 1, 4).getValues()[0];
   return rowValues.every(function (cell) {
     return cell !== "";
   });
 }
 
 function formatFilledRow(sheet, row) {
-  sheet.getRange(row, 1, 1, 3).clearFormat();
+  sheet.getRange(row, 1, 1, 4).clearFormat();
 }
